@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>故事朗讀系統</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600;900&family=Noto+Sans+TC:wght@300;400;500&display=swap');
+
+  :root {
+    --ink: #1a1208;
+    --paper: #f5f0e8;
+    --paper-dark: #ede6d6;
+    --accent: #8b1a1a;
+    --accent2: #c9622a;
+    --gold: #b8860b;
+    --muted: #7a6f5e;
+    --shadow: rgba(26,18,8,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Noto Sans TC', sans-serif;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(139,26,26,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 100%, rgba(201,98,42,0.05) 0%, transparent 60%),
+      url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23b8860b' fill-opacity='0.025'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  /* ── Header ── */
+  header {
+    text-align: center;
+    padding: 48px 24px 32px;
+    border-bottom: 1px solid rgba(184,134,11,0.25);
+    position: relative;
+  }
+  header::before {
+    content: '📖';
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: 12px;
+    filter: drop-shadow(0 2px 8px rgba(139,26,26,0.3));
+  }
+  h1 {
+    font-family: 'Noto Serif TC', serif;
+    font-size: clamp(1.8rem, 5vw, 3rem);
+    font-weight: 900;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-shadow: 2px 2px 0 rgba(139,26,26,0.1);
+    line-height: 1.2;
+  }
+  .subtitle {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+  }
+
+  /* ── Layout ── */
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 28px;
+  }
+  @media (max-width: 700px) {
+    .container { grid-template-columns: 1fr; }
+  }
+
+  /* ── Panel ── */
+  .panel {
+    background: rgba(255,255,255,0.55);
+    border: 1px solid rgba(184,134,11,0.2);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 4px 24px var(--shadow);
+    backdrop-filter: blur(4px);
+  }
+  .panel-title {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--gold);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(184,134,11,0.2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ── Upload Zone ── */
+  .upload-zone {
+    border: 2px dashed rgba(184,134,11,0.4);
+    border-radius: 10px;
+    padding: 32px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s;
+    background: rgba(184,134,11,0.03);
+    margin-bottom: 20px;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(139,26,26,0.05);
+  }
+  .upload-icon { font-size: 2rem; margin-bottom: 8px; }
+  .upload-label { font-size: 0.9rem; color: var(--muted); line-height: 1.6; }
+  .upload-label strong { color: var(--accent); }
+  #fileInput { display: none; }
+
+  /* ── Textarea ── */
+  textarea {
+    width: 100%;
+    height: 200px;
+    resize: vertical;
+    border: 1px solid rgba(184,134,11,0.25);
+    border-radius: 8px;
+    padding: 14px;
+    font-family: 'Noto Serif TC', serif;
+    font-size: 0.95rem;
+    line-height: 1.9;
+    background: rgba(255,255,255,0.7);
+    color: var(--ink);
+    transition: border-color 0.2s;
+    margin-bottom: 16px;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+
+  /* ── Buttons ── */
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 2px 12px rgba(139,26,26,0.3);
+  }
+  .btn-primary:hover { background: #a01e1e; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(139,26,26,0.4); }
+  .btn-secondary {
+    background: var(--paper-dark);
+    color: var(--ink);
+    border: 1px solid rgba(184,134,11,0.3);
+  }
+  .btn-secondary:hover { background: #e2d9c5; }
+  .btn-gold {
+    background: var(--gold);
+    color: #fff;
+    box-shadow: 0 2px 12px rgba(184,134,11,0.3);
+  }
+  .btn-gold:hover { background: #9e7209; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+
+  /* ── Story Display ── */
+  #storyDisplay {
+    min-height: 260px;
+    max-height: 480px;
+    overflow-y: auto;
+    line-height: 2.2;
+    font-family: 'Noto Serif TC', serif;
+    font-size: 1.05rem;
+    padding: 4px;
+  }
+  .story-line {
+    display: block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    transition: background 0.3s;
+    cursor: pointer;
+  }
+  .story-line:hover { background: rgba(184,134,11,0.08); }
+  .story-line.active {
+    background: rgba(139,26,26,0.1);
+    border-left: 3px solid var(--accent);
+    padding-left: 14px;
+  }
+  .story-line.done { color: var(--muted); }
+  .speaker-tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 1px 7px;
+    border-radius: 20px;
+    margin-right: 6px;
+    vertical-align: middle;
+    font-family: 'Noto Sans TC', sans-serif;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Progress ── */
+  .progress-bar-wrap {
+    height: 4px;
+    background: rgba(184,134,11,0.15);
+    border-radius: 2px;
+    margin: 16px 0 12px;
+    overflow: hidden;
+  }
+  #progressBar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.4s;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar { display: flex; flex-direction: column; gap: 20px; }
+
+  /* ── Voice Cards ── */
+  .voice-card {
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(184,134,11,0.2);
+    background: rgba(255,255,255,0.5);
+    margin-bottom: 8px;
+    transition: all 0.2s;
+  }
+  .voice-card:last-child { margin-bottom: 0; }
+  .voice-card.speaking {
+    border-color: var(--accent);
+    background: rgba(139,26,26,0.07);
+    box-shadow: 0 0 0 2px rgba(139,26,26,0.15);
+  }
+  .voice-card-name {
+    font-weight: 500;
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .voice-card-info { font-size: 0.75rem; color: var(--muted); }
+  .voice-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  /* ── Controls ── */
+  .control-group { margin-bottom: 14px; }
+  .control-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+    display: flex; justify-content: space-between;
+  }
+  input[type=range] {
+    width: 100%;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  /* ── Status ── */
+  #statusMsg {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-top: 10px;
+    min-height: 20px;
+    font-style: italic;
+  }
+  #statusMsg.error { color: var(--accent); font-style: normal; }
+  #statusMsg.ok { color: #2d7a2d; font-style: normal; }
+
+  /* ── Wave animation ── */
+  .wave-bars {
+    display: inline-flex; align-items: flex-end; gap: 2px;
+    height: 16px; margin-left: 6px; vertical-align: middle;
+  }
+  .wave-bars span {
+    width: 3px; background: var(--accent);
+    border-radius: 2px;
+    animation: wave 0.8s ease-in-out infinite;
+  }
+  .wave-bars span:nth-child(2) { animation-delay: 0.15s; }
+  .wave-bars span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes wave {
+    0%,100% { height: 4px; }
+    50% { height: 14px; }
+  }
+  .wave-bars.hidden { display: none; }
+
+  /* ── Scrollbar ── */
+  #storyDisplay::-webkit-scrollbar { width: 6px; }
+  #storyDisplay::-webkit-scrollbar-track { background: transparent; }
+  #storyDisplay::-webkit-scrollbar-thumb { background: rgba(184,134,11,0.3); border-radius: 3px; }
+
+  /* ── Empty state ── */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 200px;
+    color: var(--muted); text-align: center;
+    gap: 10px;
+  }
+  .empty-state-icon { font-size: 3rem; opacity: 0.4; }
+
+  /* ── Sample ── */
+  .sample-btn {
+    font-size: 0.78rem;
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px solid rgba(184,134,11,0.35);
+    border-radius: 20px;
+    cursor: pointer;
+    color: var(--gold);
+    transition: all 0.2s;
+  }
+  .sample-btn:hover { background: rgba(184,134,11,0.1); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>故事朗讀系統</h1>
+  <p class="subtitle">上傳文字 · AI 分析角色 · 多聲線朗讀</p>
+</header>
+
+<div class="container">
+  <!-- Main Column -->
+  <div style="display:flex;flex-direction:column;gap:20px;">
+
+    <!-- Upload & Input -->
+    <div class="panel">
+      <div class="panel-title">📄 故事文字</div>
+
+      <div class="upload-zone" id="uploadZone">
+        <div class="upload-icon">📂</div>
+        <div class="upload-label">
+          拖曳 <strong>.txt</strong> 文字檔到這裡，或<strong>點擊選擇檔案</strong><br>
+          <span style="font-size:0.78rem">支援 UTF-8 中文文字檔</span>
+        </div>
+        <input type="file" id="fileInput" accept=".txt">
+      </div>
+
+      <textarea id="storyInput" placeholder="或直接在此貼上故事內容…
+
+例如：
+從前，有一位老奶奶住在山腳下。
+老奶奶說：「小紅帽，去把這籃子送給你外婆吧。」
+小紅帽答道：「好的，奶奶！我馬上出發。」
+走進森林，大野狼突然出現說：「小姑娘，你要去哪裡？」"></textarea>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="analyzeBtn">🔍 分析角色</button>
+        <button class="btn btn-secondary" id="clearBtn">✕ 清除</button>
+        <button class="sample-btn" id="sampleBtn">載入範例故事</button>
+      </div>
+      <div id="statusMsg"></div>
+    </div>
+
+    <!-- Story Display -->
+    <div class="panel">
+      <div class="panel-title">
+        📜 朗讀畫面
+        <span class="wave-bars hidden" id="waveBars">
+          <span></span><span></span><span></span>
+        </span>
+      </div>
+
+      <div id="storyDisplay">
+        <div class="empty-state">
+          <div class="empty-state-icon">🎭</div>
+          <div>請先輸入故事並點擊「分析角色」</div>
+        </div>
+      </div>
+
+      <div class="progress-bar-wrap">
+        <div id="progressBar"></div>
+      </div>
+
+      <div class="btn-row" id="playControls">
+        <button class="btn btn-gold" id="playBtn" disabled>▶ 開始朗讀</button>
+        <button class="btn btn-secondary" id="pauseBtn" disabled>⏸ 暫停</button>
+        <button class="btn btn-secondary" id="stopBtn" disabled>⏹ 停止</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+
+    <!-- Voice Settings -->
+    <div class="panel">
+      <div class="panel-title">🎚 朗讀設定</div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>朗讀速度</span>
+          <span id="rateVal">1.0×</span>
+        </div>
+        <input type="range" id="rateSlider" min="0.5" max="2" step="0.1" value="1">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>整體音量</span>
+          <span id="volVal">100%</span>
+        </div>
+        <input type="range" id="volSlider" min="0" max="1" step="0.05" value="1">
+      </div>
+    </div>
+
+    <!-- Character Voices -->
+    <div class="panel">
+      <div class="panel-title">🎭 角色聲線</div>
+      <div id="voiceList">
+        <div style="font-size:0.82rem;color:var(--muted);font-style:italic;">分析故事後顯示角色列表</div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="panel">
+      <div class="panel-title">📘 格式說明</div>
+      <div style="font-size:0.8rem;color:var(--muted);line-height:2;">
+        系統自動辨識：<br>
+        • 「引號內容」→ 角色對話<br>
+        • 其餘文字 → 旁白敘述<br>
+        • 角色名稱 + 說/道/問/答<br>
+        • 支援中文全形引號「」<br>
+        • 支援西式引號 ""<br>
+        <br>
+        <span style="color:var(--accent);">★ 每個角色自動分配專屬聲線</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Colour palette for characters ──
+const CHAR_COLORS = [
+  { bg: '#8b1a1a', light: 'rgba(139,26,26,0.12)' },
+  { bg: '#1a5c8b', light: 'rgba(26,92,139,0.12)' },
+  { bg: '#2d7a2d', light: 'rgba(45,122,45,0.12)' },
+  { bg: '#7a3d8b', light: 'rgba(122,61,139,0.12)' },
+  { bg: '#c9622a', light: 'rgba(201,98,42,0.12)' },
+  { bg: '#4a7a3d', light: 'rgba(74,122,61,0.12)' },
+  { bg: '#b8860b', light: 'rgba(184,134,11,0.12)' },
+];
+
+// ── Sample Story ──
+const SAMPLE = `從前，在一片茂密的森林邊緣，住著一位善良的老奶奶。
+老奶奶說：「小紅帽，今天外婆生病了，你能把這籃子蛋糕和果汁送去給她嗎？」
+小紅帽高興地答道：「當然可以，奶奶！我現在就出發！」
+小紅帽背著籃子，蹦蹦跳跳地走進了森林小徑。
+陽光透過樹葉灑下，小鳥在枝頭唱著歌。
+突然，一隻大野狼從樹後跳出來，低沉地說：「小姑娘，你這麼早要去哪裡呀？」
+小紅帽天真地回答：「我要去外婆家，她住在森林深處的小屋裡。」
+大野狼心想：這真是個好機會。他假裝友善地說：「那邊有很多漂亮的野花，採一些帶去給外婆吧！」
+小紅帽點頭說：「好主意！外婆一定會喜歡的。」
+大野狼趕緊抄近路，先跑到外婆家敲門。
+外婆問道：「誰呀？」
+大野狼模仿小紅帽的聲音說：「是我，小紅帽，我來看您了。」
+外婆說：「門沒鎖，請進來吧。」
+當小紅帽終於到達外婆家，推開門進去時，覺得有些奇怪。
+小紅帽輕聲問：「外婆，你的眼睛為什麼那麼大？」
+大野狼答說：「為了更清楚地看你呀，親愛的。」
+小紅帽疑惑地又問：「外婆，你的耳朵為什麼那麼大？」
+大野狼說：「為了更清楚地聽你說話呀。」
+小紅帽顫抖著問：「那……外婆，你的牙齒為什麼那麼大？」
+大野狼猛地跳起來喊道：「為了更好地把你吃掉啊！」
+就在這危急時刻，一位獵人路過小屋，聽見了喧鬧聲。
+獵人大聲說：「住手！我來了！」
+小紅帽感激地說：「謝謝您救了我們！以後我再也不會輕易相信陌生人了。」
+外婆笑著說：「孩子，這就是今天最重要的一課。」
+從此以後，小紅帽每次進入森林，都格外小心謹慎，再也沒有遇到危險。`;
+
+// ── State ──
+let segments = [];      // { text, speaker, type }
+let characters = {};    // name → { color, pitch, rate, voiceIdx }
+let currentIdx = -1;
+let speaking = false;
+let paused = false;
+let globalRate = 1.0;
+let globalVol = 1.0;
+let availableVoices = [];
+
+// ── Init voices ──
+function loadVoices() {
+  availableVoices = speechSynthesis.getVoices().filter(v =>
+    v.lang.startsWith('zh') || v.lang.startsWith('cmn') || v.lang.includes('CN') || v.lang.includes('TW') || v.lang.includes('HK')
+  );
+  if (availableVoices.length === 0) {
+    availableVoices = speechSynthesis.getVoices(); // fallback
+  }
+}
+speechSynthesis.addEventListener('voiceschanged', loadVoices);
+loadVoices();
+
+// ── Parse story into segments ──
+function parseStory(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const segs = [];
+  const charMap = {};   // name → colour index
+  let colIdx = 0;
+
+  // Regex patterns
+  const dialoguePatterns = [
+    // 角色說：「...」
+    /^(.{1,8})[說道問答叫喊嚷喝笑哭嘆][:：]?\s*[「『""](.*?)[」』""](.*)$/,
+    // 「...」角色說
+    /^[「『""](.*?)[」』""][\s,，]*(.*?)[說道問答叫喊嚷喝笑哭嘆]/,
+  ];
+  const inlineDialogue = /[「『""](.*?)[」』""]/g;
+
+  lines.forEach(line => {
+    // Try named speaker pattern
+    let matched = false;
+
+    for (const pat of dialoguePatterns) {
+      const m = line.match(pat);
+      if (m) {
+        const speaker = m[1] ? m[1].trim() : '旁白';
+        const speech = m[2] || m[1];
+
+        if (!charMap[speaker]) {
+          charMap[speaker] = colIdx++ % CHAR_COLORS.length;
+        }
+
+        // prefix narration
+        const prefix = line.substring(0, line.indexOf(speech) - 1).replace(/[「『""]/g, '').trim();
+        if (prefix && prefix !== speaker) {
+          segs.push({ text: prefix, speaker: '旁白', type: 'narration' });
+        }
+
+        segs.push({ text: speech.trim(), speaker, type: 'dialogue' });
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) {
+      // Check for inline quotes: split line into narration + dialogue parts
+      let lastIndex = 0;
+      let m;
+      const rx = /[「『""](.*?)[」』""]/g;
+      let hasQuote = false;
+      while ((m = rx.exec(line)) !== null) {
+        hasQuote = true;
+        if (m.index > lastIndex) {
+          const narr = line.slice(lastIndex, m.index).trim();
+          if (narr) segs.push({ text: narr, speaker: '旁白', type: 'narration' });
+        }
+        // Try to figure out who said it from surrounding text
+        const ctx = line.slice(Math.max(0, m.index - 8), m.index);
+        const speakerMatch = ctx.match(/(.{1,4})[說道問答叫喊嚷喝笑哭嘆]/);
+        const sp = speakerMatch ? speakerMatch[1].trim() : '未知角色';
+        if (!charMap[sp]) charMap[sp] = colIdx++ % CHAR_COLORS.length;
+        segs.push({ text: m[1], speaker: sp, type: 'dialogue' });
+        lastIndex = m.index + m[0].length;
+      }
+      if (!hasQuote) {
+        segs.push({ text: line, speaker: '旁白', type: 'narration' });
+      } else if (lastIndex < line.length) {
+        const tail = line.slice(lastIndex).trim();
+        if (tail) segs.push({ text: tail, speaker: '旁白', type: 'narration' });
+      }
+    }
+  });
+
+  // Build character profiles
+  const chars = { '旁白': buildVoiceProfile('旁白', -1) };
+  Object.keys(charMap).forEach((name, i) => {
+    if (name !== '旁白') chars[name] = buildVoiceProfile(name, charMap[name]);
+  });
+
+  return { segs, chars };
+}
+
+function buildVoiceProfile(name, colorIdx) {
+  // Heuristic voice assignment based on name clues
+  let pitch = 1.0, rate = 1.0, voiceHint = 'neutral';
+
+  if (name === '旁白') {
+    pitch = 0.95; rate = 0.95; voiceHint = 'narrator';
+  } else if (/奶奶|婆|媽|母|姥/.test(name)) {
+    pitch = 1.15; rate = 0.88; voiceHint = 'old-female';
+  } else if (/爺爺|老人|爸|父|叔|伯|獵人/.test(name)) {
+    pitch = 0.75; rate = 0.88; voiceHint = 'old-male';
+  } else if (/小|妹|帽|女孩|公主|仙女/.test(name)) {
+    pitch = 1.35; rate = 1.05; voiceHint = 'young-female';
+  } else if (/狼|魔|鬼|怪|巫/.test(name)) {
+    pitch = 0.6; rate = 0.9; voiceHint = 'villain';
+  } else if (/王子|少年|男孩/.test(name)) {
+    pitch = 0.85; rate = 1.0; voiceHint = 'young-male';
+  }
+
+  return {
+    colorIdx: colorIdx < 0 ? 6 : colorIdx,
+    pitch, rate, voiceHint,
+    label: voiceHintLabel(voiceHint)
+  };
+}
+
+function voiceHintLabel(h) {
+  return {
+    'narrator': '旁白 · 沉穩',
+    'old-female': '老年女聲 · 慈祥',
+    'old-male': '老年男聲 · 低沉',
+    'young-female': '少女 · 活潑',
+    'villain': '反派 · 陰沉',
+    'young-male': '少年 · 清朗',
+    'neutral': '中性聲線',
+  }[h] || '標準聲線';
+}
+
+// ── Render story display ──
+function renderStory(segs, chars) {
+  const div = document.getElementById('storyDisplay');
+  div.innerHTML = '';
+  segs.forEach((seg, i) => {
+    const span = document.createElement('span');
+    span.className = 'story-line';
+    span.dataset.idx = i;
+    span.onclick = () => jumpTo(i);
+
+    const char = chars[seg.speaker] || chars['旁白'];
+    const col = CHAR_COLORS[char.colorIdx];
+
+    if (seg.type === 'dialogue') {
+      const tag = document.createElement('span');
+      tag.className = 'speaker-tag';
+      tag.style.background = col.light;
+      tag.style.color = col.bg;
+      tag.style.border = `1px solid ${col.bg}40`;
+      tag.textContent = seg.speaker;
+      span.appendChild(tag);
+    }
+
+    span.appendChild(document.createTextNode(seg.type === 'dialogue' ? `「${seg.text}」` : seg.text));
+    div.appendChild(span);
+  });
+}
+
+// ── Render voice list ──
+function renderVoiceList(chars) {
+  const div = document.getElementById('voiceList');
+  div.innerHTML = '';
+  Object.entries(chars).forEach(([name, cfg]) => {
+    const col = CHAR_COLORS[cfg.colorIdx];
+    const card = document.createElement('div');
+    card.className = 'voice-card';
+    card.id = `vc-${name}`;
+    card.innerHTML = `
+      <div class="voice-card-name">
+        <span class="voice-dot" style="background:${col.bg}"></span>
+        ${name}
+      </div>
+      <div class="voice-card-info">${cfg.label}</div>
+      <div class="voice-card-info" style="margin-top:4px;">
+        音調 ${cfg.pitch.toFixed(2)} · 語速 ${cfg.rate.toFixed(2)}
+      </div>`;
+    div.appendChild(card);
+  });
+}
+
+// ── TTS ──
+function speakSegment(idx) {
+  if (idx >= segments.length) {
+    finishReading();
+    return;
+  }
+  currentIdx = idx;
+  updateHighlight(idx);
+  updateProgress(idx);
+
+  const seg = segments[idx];
+  const char = characters[seg.speaker] || characters['旁白'];
+
+  // Highlight voice card
+  document.querySelectorAll('.voice-card').forEach(c => c.classList.remove('speaking'));
+  const vc = document.getElementById(`vc-${seg.speaker}`);
+  if (vc) vc.classList.add('speaking');
+
+  const utter = new SpeechSynthesisUtterance(seg.text);
+  utter.lang = 'zh-TW';
+
+  // Pick best voice
+  let voice = null;
+  if (availableVoices.length > 0) {
+    // Try to match hint
+    const hint = char.voiceHint;
+    if (hint === 'old-female' || hint === 'young-female') {
+      voice = availableVoices.find(v => /female|woman|girl/i.test(v.name)) || availableVoices[0];
+    } else if (hint === 'old-male' || hint === 'young-male' || hint === 'villain') {
+      voice = availableVoices.find(v => /male|man/i.test(v.name)) || availableVoices[0];
+    } else {
+      voice = availableVoices[0];
+    }
+    if (voice) utter.voice = voice;
+  }
+
+  utter.pitch = char.pitch;
+  utter.rate = char.rate * globalRate;
+  utter.volume = globalVol;
+
+  utter.onend = () => {
+    if (speaking && !paused) speakSegment(idx + 1);
+  };
+  utter.onerror = (e) => {
+    if (e.error !== 'interrupted') speakSegment(idx + 1);
+  };
+
+  speechSynthesis.speak(utter);
+  setStatus(`正在朗讀：${seg.speaker === '旁白' ? '旁白敘述' : seg.speaker + ' 的對話'}`, 'ok');
+}
+
+function updateHighlight(idx) {
+  document.querySelectorAll('.story-line').forEach((el, i) => {
+    el.classList.remove('active', 'done');
+    if (i < idx) el.classList.add('done');
+    if (i === idx) {
+      el.classList.add('active');
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
+}
+
+function updateProgress(idx) {
+  const pct = segments.length > 0 ? (idx / segments.length) * 100 : 0;
+  document.getElementById('progressBar').style.width = pct + '%';
+}
+
+function jumpTo(idx) {
+  speechSynthesis.cancel();
+  currentIdx = idx;
+  if (speaking) speakSegment(idx);
+}
+
+function finishReading() {
+  speaking = false; paused = false;
+  document.getElementById('progressBar').style.width = '100%';
+  document.getElementById('waveBars').classList.add('hidden');
+  setStatus('朗讀完成 ✓', 'ok');
+  updateButtons();
+  document.querySelectorAll('.voice-card').forEach(c => c.classList.remove('speaking'));
+  document.querySelectorAll('.story-line').forEach(el => {
+    el.classList.remove('active');
+    el.classList.add('done');
+  });
+}
+
+// ── UI helpers ──
+function setStatus(msg, type = '') {
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = type;
+}
+
+function updateButtons() {
+  const hasSegs = segments.length > 0;
+  document.getElementById('playBtn').disabled = !hasSegs || speaking;
+  document.getElementById('pauseBtn').disabled = !speaking || paused;
+  document.getElementById('stopBtn').disabled = !speaking && !paused;
+  document.getElementById('waveBars').classList.toggle('hidden', !speaking || paused);
+}
+
+// ── Event handlers ──
+document.getElementById('analyzeBtn').onclick = () => {
+  const text = document.getElementById('storyInput').value.trim();
+  if (!text) { setStatus('請先輸入故事內容！', 'error'); return; }
+
+  const { segs, chars } = parseStory(text);
+  segments = segs;
+  characters = chars;
+  currentIdx = -1;
+
+  renderStory(segs, chars);
+  renderVoiceList(chars);
+
+  const charCount = Object.keys(chars).length;
+  setStatus(`✓ 分析完成：共 ${segs.length} 段，識別 ${charCount} 個角色`, 'ok');
+  updateButtons();
+  document.getElementById('playBtn').disabled = false;
+};
+
+document.getElementById('playBtn').onclick = () => {
+  if (segments.length === 0) return;
+  speaking = true; paused = false;
+  speechSynthesis.cancel();
+  const startIdx = currentIdx < 0 ? 0 : currentIdx;
+  speakSegment(startIdx);
+  updateButtons();
+};
+
+document.getElementById('pauseBtn').onclick = () => {
+  if (paused) {
+    paused = false;
+    speechSynthesis.resume();
+    setStatus('繼續朗讀中…', 'ok');
+  } else {
+    paused = true;
+    speechSynthesis.pause();
+    setStatus('已暫停', '');
+  }
+  document.getElementById('pauseBtn').textContent = paused ? '▶ 繼續' : '⏸ 暫停';
+  document.getElementById('waveBars').classList.toggle('hidden', paused);
+};
+
+document.getElementById('stopBtn').onclick = () => {
+  speaking = false; paused = false;
+  speechSynthesis.cancel();
+  currentIdx = -1;
+  updateProgress(0);
+  document.querySelectorAll('.story-line').forEach(el => el.classList.remove('active', 'done'));
+  document.querySelectorAll('.voice-card').forEach(c => c.classList.remove('speaking'));
+  document.getElementById('pauseBtn').textContent = '⏸ 暫停';
+  setStatus('已停止', '');
+  updateButtons();
+};
+
+document.getElementById('clearBtn').onclick = () => {
+  speechSynthesis.cancel();
+  speaking = false; paused = false;
+  segments = []; characters = {}; currentIdx = -1;
+  document.getElementById('storyInput').value = '';
+  document.getElementById('storyDisplay').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎭</div><div>請先輸入故事並點擊「分析角色」</div></div>';
+  document.getElementById('voiceList').innerHTML = '<div style="font-size:0.82rem;color:var(--muted);font-style:italic;">分析故事後顯示角色列表</div>';
+  updateProgress(0);
+  setStatus('');
+  updateButtons();
+};
+
+document.getElementById('sampleBtn').onclick = () => {
+  document.getElementById('storyInput').value = SAMPLE;
+  setStatus('範例故事已載入，點擊「分析角色」開始', '');
+};
+
+document.getElementById('rateSlider').oninput = function() {
+  globalRate = parseFloat(this.value);
+  document.getElementById('rateVal').textContent = globalRate.toFixed(1) + '×';
+};
+
+document.getElementById('volSlider').oninput = function() {
+  globalVol = parseFloat(this.value);
+  document.getElementById('volVal').textContent = Math.round(globalVol * 100) + '%';
+};
+
+// ── File upload ──
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+
+uploadZone.onclick = () => fileInput.click();
+fileInput.onchange = e => loadFile(e.target.files[0]);
+
+uploadZone.ondragover = e => { e.preventDefault(); uploadZone.classList.add('drag-over'); };
+uploadZone.ondragleave = () => uploadZone.classList.remove('drag-over');
+uploadZone.ondrop = e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+};
+
+function loadFile(file) {
+  if (!file || !file.name.endsWith('.txt')) {
+    setStatus('請選擇 .txt 文字檔！', 'error');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('storyInput').value = e.target.result;
+    setStatus(`✓ 已載入：${file.name}（${(file.size/1024).toFixed(1)} KB）`, 'ok');
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// Init
+updateButtons();
+</script>
+</body>
+</html>
